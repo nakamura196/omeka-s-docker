@@ -1,0 +1,144 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: omeka_traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # HTTP to HTTPS redirect
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # Let's Encrypt
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:8090:8080"  # Dashboard (localhost only)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/letsencrypt:/letsencrypt
+    networks:
+      - traefik-network
+    labels:
+      # Dashboard
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_AUTH}"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls.certresolver=myresolver"
+
+  mariadb:
+    image: mariadb:latest
+    restart: always
+    networks:
+      - omeka-network
+    volumes:
+      - mariadb:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+  pma:
+    depends_on:
+      - mariadb
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    networks:
+      - omeka-network
+    ports:
+      - "127.0.0.1:8080:80"  # ローカルホストのみアクセス可能
+    environment:
+      PMA_HOST: mariadb
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: always
+    networks:
+      - omeka-network
+    ports:
+      - "127.0.0.1:8025:8025"  # ローカルホストのみアクセス可能
+      - "1025:1025"  # SMTP server (内部ネットワークのみ)
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  omeka:
+    depends_on:
+      - mariadb
+      - mailpit
+      - traefik
+    build:
+      context: .
+      args:
+        OMEKA_VERSION: ${OMEKA_VERSION:-4.1.1}
+    restart: always
+    networks:
+      - omeka-network
+      - traefik-network
+    volumes:
+      - omeka:/var/www/html/volume
+      - ./.htaccess:/var/www/html/.htaccess
+      - ./modules:/var/www/html/modules
+      - ./themes:/var/www/html/themes
+      - ./config/local.config.php:/var/www/html/config/local.config.php:ro
+    environment:
+      # SendGrid設定
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME}
+      # PHP設定（メモリ制限エラー修正）
+      PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-512M}
+      PHP_UPLOAD_MAX_FILESIZE: ${PHP_UPLOAD_MAX_FILESIZE:-100M}
+      PHP_POST_MAX_SIZE: ${PHP_POST_MAX_SIZE:-100M}
+      # Apache設定（警告修正）
+      APACHE_SERVER_NAME: ${DOMAIN}
+      # データベース設定
+      DB_HOST: mariadb
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+    labels:
+      - "traefik.enable=true"
+      # HTTP router (redirects to HTTPS)
+      - "traefik.http.routers.omeka-insecure.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.omeka-insecure.entrypoints=web"
+      - "traefik.http.routers.omeka-insecure.middlewares=https-redirect"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      
+      # HTTPS router
+      - "traefik.http.routers.omeka.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.omeka.entrypoints=websecure"
+      - "traefik.http.routers.omeka.tls.certresolver=myresolver"
+      - "traefik.http.services.omeka.loadbalancer.server.port=80"
+      
+      # Security headers
+      - "traefik.http.middlewares.omeka-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.omeka-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.omeka-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.omeka-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.omeka-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.omeka-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.omeka-headers.headers.stsPreload=true"
+      
+      # Apply middlewares
+      - "traefik.http.routers.omeka.middlewares=omeka-headers"
+
+volumes:
+  mariadb:
+  omeka:
+
+networks:
+  omeka-network:
+    driver: bridge
+  traefik-network:
+    driver: bridge

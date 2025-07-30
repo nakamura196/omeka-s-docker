@@ -1,0 +1,52 @@
+services:
+  mariadb:
+    image: mariadb:latest
+    restart: always
+    volumes:
+      - mariadb:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: blabla
+      MYSQL_DATABASE: omeka
+      MYSQL_USER: omeka
+      MYSQL_PASSWORD: omeka
+    networks:
+      - traefik-network
+
+  pma:
+    depends_on:
+      - mariadb
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    environment:
+      PMA_HOST: mariadb
+      APACHE_SERVER_NAME: localhost
+    networks:
+      - traefik-network
+
+  omeka:
+    depends_on:
+      - mariadb
+    build: .
+    restart: always
+    volumes:
+      - omeka:/var/www/html/volume
+      - ./.htaccess:/var/www/html/.htaccess
+      - ./themes:/var/www/html/themes
+      - ./modules:/var/www/html/modules
+    labels:
+      traefik.enable: true
+      traefik.http.routers.omeka-d.rule: Host(`xxx.yyy.zzz`)
+      traefik.http.routers.omeka-d.entrypoints: websecure
+      traefik.http.routers.omeka-d.tls.certresolver: myresolver
+    networks:
+      - traefik-network
+    environment:
+      APACHE_SERVER_NAME: localhost
+
+volumes:
+  mariadb:
+  omeka:
+
+networks:
+  traefik-network:
+    external: true

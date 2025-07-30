@@ -1,0 +1,30 @@
+.DS_Store
+files
+modules
+themes
+migrations
+docker-compose-prod.yml
+.bk
+
+# 環境変数ファイル（実際の値を含むもののみ）
+.env
+.env.local
+.env.production
+
+# Omeka Sのボリューム
+/volumes/
+/files/
+/logs/
+
+# 一時ファイル
+*.log
+*.tmp
+.DS_Store
+
+# Local configuration overrides
+local.config.php
+docker-compose.override.yml
+
+.env.omeka
+
+traefik

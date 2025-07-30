@@ -1,0 +1,98 @@
+#!/bin/bash
+
+echo "=== Installing Omeka S Modules and Themes ==="
+
+# Create directories if they don't exist
+mkdir -p ./modules
+mkdir -p ./themes
+
+# Define the versions
+version_common=3.4.71
+version_default=v1.9.1
+version_iiifserver=3.6.26
+version_imageserver=3.6.20
+version_universalviewer=3.6.10-4.1.0
+
+echo "🧹 Cleaning existing modules and themes..."
+
+# Remove existing modules and themes to avoid conflicts
+echo "Removing existing modules..."
+rm -rf ./modules/Common
+rm -rf ./modules/IiifServer
+rm -rf ./modules/ImageServer
+rm -rf ./modules/UniversalViewer
+
+echo "Removing existing themes..."
+rm -rf ./themes/default
+
+echo "📦 Installing modules..."
+
+# Download and install Common module (dependency for IIIF modules)
+echo "Installing Common module v${version_common}..."
+wget https://github.com/Daniel-KM/Omeka-S-module-Common/releases/download/${version_common}/Common-${version_common}.zip -O Common-${version_common}.zip
+unzip -q Common-${version_common}.zip -d ./modules/
+rm Common-${version_common}.zip
+
+# Download and install IiifServer module
+echo "Installing IiifServer module v${version_iiifserver}..."
+wget https://github.com/Daniel-KM/Omeka-S-module-IiifServer/releases/download/${version_iiifserver}/IiifServer-${version_iiifserver}.zip -O IiifServer-${version_iiifserver}.zip
+unzip -q IiifServer-${version_iiifserver}.zip -d ./modules/
+rm IiifServer-${version_iiifserver}.zip
+
+# Download and install ImageServer module
+echo "Installing ImageServer module v${version_imageserver}..."
+wget https://github.com/Daniel-KM/Omeka-S-module-ImageServer/releases/download/${version_imageserver}/ImageServer-${version_imageserver}.zip -O ImageServer-${version_imageserver}.zip
+unzip -q ImageServer-${version_imageserver}.zip -d ./modules/
+rm ImageServer-${version_imageserver}.zip
+
+# Download and install UniversalViewer module
+echo "Installing UniversalViewer module v${version_universalviewer}..."
+wget https://github.com/Daniel-KM/Omeka-S-module-UniversalViewer/releases/download/${version_universalviewer}/UniversalViewer-${version_universalviewer}.zip -O UniversalViewer-${version_universalviewer}.zip
+unzip -q UniversalViewer-${version_universalviewer}.zip -d ./modules/
+rm UniversalViewer-${version_universalviewer}.zip
+
+echo "🎨 Installing themes..."
+
+# Download and install Default theme
+echo "Installing Default theme ${version_default}..."
+wget https://github.com/omeka-s-themes/default/releases/download/${version_default}/theme-default-${version_default}.zip -O theme-default-${version_default}.zip
+unzip -q theme-default-${version_default}.zip -d ./themes/
+rm theme-default-${version_default}.zip
+
+echo "📁 Setting permissions..."
+# Set proper permissions
+chmod -R 755 ./modules
+chmod -R 755 ./themes
+
+echo "📋 Installed modules and themes:"
+echo ""
+echo "Modules:"
+ls -la ./modules/ | grep "^d" | awk '{print "  - " $9}' | grep -v "^\.$\|^\.\.$"
+echo ""
+echo "Themes:"
+ls -la ./themes/ | grep "^d" | awk '{print "  - " $9}' | grep -v "^\.$\|^\.\.$"
+
+echo ""
+echo "✅ Installation complete!"
+echo ""
+echo "📝 Next steps:"
+echo "  1. Restart your Omeka S container:"
+echo "     docker compose -f docker-compose-omeka-traefik.yml restart omeka"
+echo ""
+echo "  2. Log in to Omeka S admin panel and enable modules:"
+echo "     - Go to Admin → Modules"
+echo "     - Install and configure the following modules in order:"
+echo "       1. Common (required dependency)"
+echo "       2. ImageServer"
+echo "       3. IiifServer"
+echo "       4. UniversalViewer"
+echo ""
+echo "  3. Configure IIIF settings:"
+echo "     - ImageServer: Configure image processing settings"
+echo "     - IiifServer: Set up IIIF manifest generation"
+echo "     - UniversalViewer: Configure viewer options"
+echo ""
+echo "🔗 Documentation:"
+echo "  - IiifServer: https://github.com/Daniel-KM/Omeka-S-module-IiifServer"
+echo "  - ImageServer: https://github.com/Daniel-KM/Omeka-S-module-ImageServer"
+echo "  - UniversalViewer: https://github.com/Daniel-KM/Omeka-S-module-UniversalViewer"

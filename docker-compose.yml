@@ -1,0 +1,80 @@
+services:
+  mariadb:
+    image: mariadb:latest
+    restart: always
+    networks:
+      - network1
+    volumes:
+      - mariadb:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      APACHE_SERVER_NAME: localhost
+  
+  pma:
+    depends_on:
+      - mariadb
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    networks:
+      - network1
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mariadb
+      APACHE_SERVER_NAME: localhost
+  
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: always
+    networks:
+      - network1
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP server
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+  
+  omeka:
+    depends_on:
+      - mariadb
+      - mailpit
+    build:
+      context: .
+      args:
+        OMEKA_VERSION: ${OMEKA_VERSION:-4.1.1}
+    restart: always
+    networks:
+      - network1
+    ports:
+      - "80:80"
+    volumes:
+      - omeka:/var/www/html/volume
+      - ./.htaccess:/var/www/html/.htaccess
+      - ./modules:/var/www/html/modules
+      - ./themes:/var/www/html/themes
+      - ./config/local.config.php:/var/www/html/config/local.config.php:ro
+    environment:
+      # SendGrid設定
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME}
+      # PHP設定
+      PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-256M}
+      PHP_UPLOAD_MAX_FILESIZE: ${PHP_UPLOAD_MAX_FILESIZE:-100M}
+      PHP_POST_MAX_SIZE: ${PHP_POST_MAX_SIZE:-100M}
+      # データベース設定
+      DB_HOST: mariadb
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+
+volumes:
+  mariadb:
+  omeka:
+
+networks:
+  network1:
