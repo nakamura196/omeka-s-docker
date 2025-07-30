@@ -1,0 +1,7 @@
+email,name,role,is_active,password
+researcher1@example.com,研究者 太郎,researcher,true,ChangeMe123!
+author1@example.com,著者 花子,author,true,ChangeMe123!
+editor1@example.com,編集者 次郎,editor,true,ChangeMe123!
+admin@example.com,管理者,admin,true,ChangeMe123!
+viewer1@example.com,閲覧者 A,researcher,true,ChangeMe123!
+contributor1@example.com,投稿者 B,author,true,ChangeMe123!

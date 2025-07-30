@@ -10,6 +10,7 @@ docker-compose-prod.yml
 .env
 .env.local
 .env.production
+scripts/.env
 
 # Omeka Sのボリューム
 /volumes/
@@ -28,3 +29,6 @@ docker-compose.override.yml
 .env.omeka
 
 traefik
+
+# Script results with sensitive data
+scripts/*_results.json
